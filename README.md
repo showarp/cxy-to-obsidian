@@ -20,7 +20,7 @@
 
 1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/)。
 2. 打开 Tampermonkey 仪表盘 → "添加新脚本" → 把 [`cxy-to-obsidian.user.js`](cxy-to-obsidian.user.js) 全文粘贴覆盖默认骨架 → Ctrl/Cmd + S 保存。
-3. 访问任意一道题目页 (例如 `https://cxyonly.fans/math/practice/329`),工具栏右侧应出现紫色高亮的 **Obsidian** 圆形按钮。
+3. 访问任意一道题目页 (例如 `https://cxyonly.fans/math/practice/329`),工具栏右侧应出现 **Obsidian** 圆形按钮。
 
 ## 首次配置
 
