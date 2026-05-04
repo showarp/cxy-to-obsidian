@@ -1,4 +1,4 @@
-# cxyonly → Obsidian
+# cxyonlyfans → Obsidian
 
 一个 Tampermonkey 油猴脚本,在 [cxyonly.fans](https://cxyonly.fans/) 题目卡片旁加一个按钮,点一下把这道题以 Markdown 笔记的形式发到 Obsidian。
 
