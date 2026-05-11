@@ -13,6 +13,24 @@
 (function () {
   'use strict';
 
+  // Safari Userscripts 等环境可能不提供 GM API，回退到 localStorage
+  const _GM_getValue = typeof GM_getValue !== 'undefined'
+    ? GM_getValue
+    : (key, defaultValue) => {
+        try {
+          const v = localStorage.getItem(key);
+          return v === null ? defaultValue : JSON.parse(v);
+        } catch { return defaultValue; }
+      };
+  const _GM_setValue = typeof GM_setValue !== 'undefined'
+    ? GM_setValue
+    : (key, value) => {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+      };
+  const _GM_registerMenuCommand = typeof GM_registerMenuCommand !== 'undefined'
+    ? GM_registerMenuCommand
+    : () => {};
+
   const STORAGE_KEY = 'cxy_obsidian_config';
 
   const DEFAULT_TEMPLATE = `---
@@ -44,18 +62,23 @@ tags:
 
   // ---------- Config ----------
   function loadConfig() {
-    const raw = GM_getValue(STORAGE_KEY, null);
+    const raw = _GM_getValue(STORAGE_KEY, null);
     if (!raw) return { ...DEFAULTS };
     try { return { ...DEFAULTS, ...JSON.parse(raw) }; }
     catch { return { ...DEFAULTS }; }
   }
-  function saveConfig(cfg) { GM_setValue(STORAGE_KEY, JSON.stringify(cfg)); }
+  function saveConfig(cfg) { _GM_setValue(STORAGE_KEY, JSON.stringify(cfg)); }
   let config = loadConfig();
 
   // ---------- Helpers ----------
   const pad = n => String(n).padStart(2, '0');
   const fmtTimestamp = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const lastSeg = s => {
+    if (!s) return '';
+    const parts = String(s).split('/').map(x => x.trim()).filter(Boolean);
+    return parts[parts.length - 1] ?? '';
+  };
 
   // Obsidian tag rules: letters/digits/_/-/`/`, CJK ok; strip everything else
   function sanitizeTag(s) {
@@ -70,14 +93,15 @@ tags:
 
   function buildTagsBlock(q) {
     const tags = [];
+    const seen = new Set();
+    const add = raw => {
+      const t = sanitizeTag(raw);
+      if (t && !seen.has(t)) { seen.add(t); tags.push(t); }
+    };
     if (q.category_full_path) {
-      q.category_full_path.split('/').map(s => s.trim()).filter(Boolean)
-        .forEach(seg => tags.push(seg));
+      q.category_full_path.split('/').forEach(add);
     }
-    if (q.题源) {
-      const t = sanitizeTag(q.题源);
-      if (t) tags.push(t);
-    }
+    if (q.题源) add(q.题源);
     if (tags.length === 0) return '  []';
     return tags.map(t => `  - ${t}`).join('\n');
   }
@@ -115,7 +139,7 @@ tags:
       id: q.id,
       题号: q.题号 ?? q.id,
       题目内容,
-      category_name: q.category_name ?? '',
+      category_name: lastSeg(q.category_name),
       category_full_path: q.category_full_path ?? '',
       题源: q.题源 ?? '',
       url: location.href,
@@ -143,7 +167,7 @@ tags:
       id: q.id,
       题号: q.题号 ?? q.id,
       题源: q.题源 ?? '',
-      category_name: q.category_name ?? '',
+      category_name: lastSeg(q.category_name),
       category_full_path: q.category_full_path ?? '',
       date: fmtDate(now),
       timestamp: fmtTimestamp(now).replace(/[: ]/g, '-'),
@@ -222,14 +246,21 @@ tags:
 
   const STYLE_ID = 'cxy-obs-style';
   const STYLE_CSS = `
-.cxy-obs-group {
+.cxy-obs-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(128,128,128,.25);
+}
+.cxy-obs-group, .cxy-obs-settings-group {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  margin-left: 12px;
 }
-.cxy-obs-btn {
+.cxy-obs-btn, .cxy-obs-settings-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -243,18 +274,40 @@ tags:
   color: #606266;
   transition: border-color .18s, color .18s, background .18s, box-shadow .18s;
 }
-.cxy-obs-btn:hover {
+.cxy-obs-btn:hover, .cxy-obs-settings-btn:hover {
   border-color: #7c3aed;
   color: #7c3aed;
   background: #faf7ff;
   box-shadow: 0 2px 6px rgba(124, 58, 237, .15);
 }
-.cxy-obs-btn svg { width: 18px; height: 18px; display: block; }
-.cxy-obs-label {
+.cxy-obs-btn svg, .cxy-obs-settings-btn svg { width: 18px; height: 18px; display: block; }
+.cxy-obs-label, .cxy-obs-settings-label {
   font-size: 12px;
   color: #606266;
   line-height: 1;
   user-select: none;
+}
+
+/* Dark theme adaptation */
+.cxy-obs-wrapper[data-theme="dark"] {
+  border-left-color: rgba(255,255,255,.15);
+}
+.cxy-obs-wrapper[data-theme="dark"] .cxy-obs-btn,
+.cxy-obs-wrapper[data-theme="dark"] .cxy-obs-settings-btn {
+  background: #1e1e1e;
+  border-color: rgba(255,255,255,.12);
+  color: #e0e0e0;
+}
+.cxy-obs-wrapper[data-theme="dark"] .cxy-obs-btn:hover,
+.cxy-obs-wrapper[data-theme="dark"] .cxy-obs-settings-btn:hover {
+  background: #2a2a2a;
+  border-color: #7c3aed;
+  color: #a78bfa;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, .25);
+}
+.cxy-obs-wrapper[data-theme="dark"] .cxy-obs-label,
+.cxy-obs-wrapper[data-theme="dark"] .cxy-obs-settings-label {
+  color: #b0b0b0;
 }
 `;
 
@@ -266,8 +319,25 @@ tags:
     document.head.appendChild(s);
   }
 
+  // Detect dark theme by checking page background brightness
+  function isDarkTheme() {
+    try {
+      const bodyBg = getComputedStyle(document.body).backgroundColor;
+      const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
+      const bg = bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent' ? bodyBg : htmlBg;
+      if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') return false;
+      const rgb = bg.match(/\d+/g);
+      if (!rgb || rgb.length < 3) return false;
+      const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+      return brightness < 128;
+    } catch { return false; }
+  }
+
   // download-into-tray icon (lucide)
   const ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
+  // gear icon (lucide) — used inside the bottom toolbar
+  const GEAR_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
   function injectButtons() {
     document.querySelectorAll('.action-toolbar').forEach(toolbar => {
@@ -282,20 +352,42 @@ tags:
       if (!qid) return;
 
       const target = toolbar.querySelector('.toolbar-right') || toolbar;
+      const dark = isDarkTheme();
 
-      const group = document.createElement('div');
-      group.className = 'action-btn-group cxy-obs-group';
-      group.setAttribute(BTN_FLAG, '1');
-      group.innerHTML = `
+      const container = document.createElement('div');
+      container.className = 'cxy-obs-wrapper';
+      container.setAttribute(BTN_FLAG, '1');
+      if (dark) container.setAttribute('data-theme', 'dark');
+
+      // Obsidian export button
+      const obsGroup = document.createElement('div');
+      obsGroup.className = 'action-btn-group cxy-obs-group';
+      obsGroup.innerHTML = `
         <button type="button" class="cxy-obs-btn" title="导出到 Obsidian" aria-label="导出到 Obsidian">${ICON_SVG}</button>
         <span class="cxy-obs-label">Obsidian</span>
       `;
-      group.querySelector('button').addEventListener('click', e => {
+      obsGroup.querySelector('button').addEventListener('click', e => {
         e.preventDefault();
         e.stopPropagation();
         exportToObsidian(qid);
       });
-      target.appendChild(group);
+
+      // Settings button
+      const settingsGroup = document.createElement('div');
+      settingsGroup.className = 'action-btn-group cxy-obs-settings-group';
+      settingsGroup.innerHTML = `
+        <button type="button" class="cxy-obs-settings-btn" title="Obsidian 导出设置" aria-label="Obsidian 导出设置">${GEAR_ICON}</button>
+        <span class="cxy-obs-settings-label">设置</span>
+      `;
+      settingsGroup.querySelector('button').addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        openConfigPanel();
+      });
+
+      container.appendChild(obsGroup);
+      container.appendChild(settingsGroup);
+      target.appendChild(container);
     });
   }
 
@@ -308,40 +400,45 @@ tags:
   // ---------- Config panel ----------
   function openConfigPanel() {
     if (document.getElementById('cxy-obs-modal')) return;
+    const dark = isDarkTheme();
+    const C = dark
+      ? { bg: '#1e1e1e', fg: '#e0e0e0', border: 'rgba(255,255,255,.12)', muted: '#888', inputBg: '#2a2a2a', btnBg: '#2a2a2a', btnFg: '#e0e0e0', codeBg: '#333' }
+      : { bg: '#fff', fg: '#303133', border: '#dcdfe6', muted: '#909399', inputBg: '#fff', btnBg: '#fff', btnFg: '#606266', codeBg: '#f5f5f5' };
 
     const modal = document.createElement('div');
     modal.id = 'cxy-obs-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
 
     const card = document.createElement('div');
-    card.style.cssText = 'background:#fff;width:640px;max-width:92vw;max-height:90vh;overflow:auto;border-radius:8px;padding:22px 24px;color:#303133;font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;';
+    card.id = 'cxy-obs-card';
+    card.style.cssText = `background:${C.bg};color:${C.fg};width:640px;max-width:92vw;max-height:90vh;overflow:auto;border-radius:8px;padding:22px 24px;font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;`;
     card.innerHTML = `
-      <h2 style="margin:0 0 18px;font-size:18px;font-weight:600;">导出到 Obsidian — 配置</h2>
+      <h2 style="margin:0 0 18px;font-size:18px;font-weight:600;color:${C.fg};">导出到 Obsidian — 配置</h2>
       <div style="display:grid;grid-template-columns:110px 1fr;gap:12px 14px;align-items:center;">
         <label>Vault 名:</label>
-        <input id="cxy-cfg-vault" type="text" placeholder="必填,如 MyVault (Obsidian 侧边栏顶端那个名字)" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;">
+        <input id="cxy-cfg-vault" type="text" placeholder="必填,如 MyVault (Obsidian 侧边栏顶端那个名字)" style="padding:6px 10px;border:1px solid ${C.border};border-radius:4px;font-size:13px;background:${C.inputBg};color:${C.fg};">
         <label>目标文件夹:</label>
-        <input id="cxy-cfg-folder" type="text" placeholder="如 刷题/数学" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;">
+        <input id="cxy-cfg-folder" type="text" placeholder="如 刷题/数学" style="padding:6px 10px;border:1px solid ${C.border};border-radius:4px;font-size:13px;background:${C.inputBg};color:${C.fg};">
         <label>文件名模板:</label>
-        <input id="cxy-cfg-filename" type="text" placeholder="{id}" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;">
+        <input id="cxy-cfg-filename" type="text" placeholder="{id}" style="padding:6px 10px;border:1px solid ${C.border};border-radius:4px;font-size:13px;background:${C.inputBg};color:${C.fg};">
         <label>覆盖已有:</label>
-        <div style="display:flex;align-items:center;gap:8px;"><input id="cxy-cfg-overwrite" type="checkbox"><span style="color:#909399;font-size:12px;">关闭时,同名文件再次导入只会打开旧笔记 (不会覆盖你已写的内容)</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><input id="cxy-cfg-overwrite" type="checkbox"><span style="color:${C.muted};font-size:12px;">关闭时,同名文件再次导入只会打开旧笔记 (不会覆盖你已写的内容)</span></div>
       </div>
       <div style="margin-top:16px;">
         <label style="display:block;margin-bottom:6px;">Markdown 模板:</label>
-        <textarea id="cxy-cfg-template" rows="16" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dcdfe6;border-radius:4px;font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.55;"></textarea>
-        <div style="color:#909399;font-size:12px;margin-top:6px;line-height:1.7;">
+        <textarea id="cxy-cfg-template" rows="16" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid ${C.border};border-radius:4px;font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.55;background:${C.inputBg};color:${C.fg};"></textarea>
+        <div style="color:${C.muted};font-size:12px;margin-top:6px;line-height:1.7;">
           可用占位符:<br>
-          <code>{id}</code> <code>{题号}</code> <code>{题目内容}</code> <code>{category_name}</code> <code>{category_full_path}</code> <code>{题源}</code><br>
-          <code>{url}</code> <code>{timestamp}</code> <code>{date}</code> <code>{tags}</code><br>
-          <code>{选项块}</code> <code>{答案块}</code> <code>{解析块}</code> — 字段为空时整段省略<br>
-          <code>{答案}</code> <code>{解析}</code> — 原始字段,需要自定义包装时用
+          <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{id}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{题号}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{题目内容}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{category_name}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{category_full_path}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{题源}</code><br>
+          <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{url}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{timestamp}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{date}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{tags}</code><br>
+          <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{选项块}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{答案块}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{解析块}</code> — 字段为空时整段省略<br>
+          <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{答案}</code> <code style="background:${C.codeBg};padding:1px 4px;border-radius:3px;font-size:11px;">{解析}</code> — 原始字段,需要自定义包装时用
         </div>
       </div>
       <div style="margin-top:18px;display:flex;justify-content:space-between;gap:8px;">
-        <button id="cxy-cfg-reset" style="padding:7px 14px;border:1px solid #dcdfe6;border-radius:4px;background:#fff;cursor:pointer;color:#606266;font-size:13px;">恢复默认模板</button>
+        <button id="cxy-cfg-reset" style="padding:7px 14px;border:1px solid ${C.border};border-radius:4px;background:${C.btnBg};cursor:pointer;color:${C.btnFg};font-size:13px;">恢复默认模板</button>
         <div style="display:flex;gap:8px;">
-          <button id="cxy-cfg-cancel" style="padding:7px 14px;border:1px solid #dcdfe6;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;">取消</button>
+          <button id="cxy-cfg-cancel" style="padding:7px 14px;border:1px solid ${C.border};border-radius:4px;background:${C.btnBg};cursor:pointer;color:${C.btnFg};font-size:13px;">取消</button>
           <button id="cxy-cfg-save" style="padding:7px 16px;border:none;border-radius:4px;background:#409eff;color:#fff;cursor:pointer;font-size:13px;">保存</button>
         </div>
       </div>
@@ -380,7 +477,7 @@ tags:
   }
 
   // ---------- Bootstrap ----------
-  GM_registerMenuCommand('Obsidian 导出 - 配置', openConfigPanel);
+  _GM_registerMenuCommand('Obsidian 导出 - 配置', openConfigPanel);
 
   injectStyle();
   const observer = new MutationObserver(scheduleInject);
