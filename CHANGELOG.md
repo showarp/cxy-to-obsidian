@@ -1,19 +1,19 @@
-# Changelog
+# 更新日志
 
 ## v0.2.0
 
-### New Features
+### 新增功能
 
-- **Safari Userscripts Support** — Added `localStorage` fallback when GM API (`GM_getValue` / `GM_setValue` / `GM_registerMenuCommand`) is unavailable, so the script now works out of the box in Safari Userscripts.
-- **Inline Settings Button** — A gear icon button is now injected next to the Obsidian export button in the bottom toolbar, providing a quick way to open the config panel without relying on the userscript manager menu.
-- **Visual Divider** — A vertical line separates the Obsidian / Settings button group from the website's native action buttons (收藏, 错题, 掌握, etc.).
+- **Safari Userscripts 兼容** — 当 `GM_getValue` / `GM_setValue` / `GM_registerMenuCommand` 不可用（如 Safari Userscripts）时，自动回退到 `localStorage`，无需额外配置即可使用。
+- **设置按钮** — 在底部操作栏的 Obsidian 按钮右侧新增齿轮图标设置按钮，点击即可打开配置面板，不再依赖油猴菜单命令。
+- **按钮分隔线** — Obsidian 按钮组与网站原生按钮（收藏、错题、掌握等）之间增加竖线分隔，视觉层级更清晰。
 
-### Improvements
+### 优化改进
 
-- **Dark Theme Adaptation** — Both the export buttons and the configuration modal now auto-detect the page's background brightness and switch to dark colors when appropriate (dark background `#1e1e1e`, light text, muted borders).
-- **Tag Deduplication** — Tags generated from `category_full_path` and `题源` are now deduplicated via `Set`.
-- **Category Name Trimming** — `{category_name}` now uses only the last segment of the path, producing cleaner note titles.
+- **深色主题适配** — 导出按钮和配置面板均会自动检测页面背景亮度，在深色模式下自动切换为暗色样式（深色背景、浅色文字、半透明白色边框）。
+- **标签去重** — `category_full_path` 和 `题源` 生成的标签现在通过 `Set` 去重，避免重复。
+- **分类名精简** — `{category_name}` 占位符现在只取路径的最后一段，笔记标题更简洁。
 
 ## v0.1.0
 
-- Initial release: Export cxyonly.fans questions to Obsidian via `obsidian://` URI.
+- 初始版本：支持将 cxyonly.fans 题目通过 `obsidian://` 协议导出到 Obsidian。
