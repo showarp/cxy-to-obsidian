@@ -103,11 +103,11 @@ tags:
 
 - URL 长度上限约 30000 字符 (脚本里有保护),超过会拒绝导出——超长题目极少见,但代码块多到爆的可能撞到。
 - `obsidian://new` 不能附属性 (frontmatter 里写了什么就是什么),如果需要追加属性请改模板。
-- `category_full_path` 按 `/` 拆成多个独立 tag,如果你想要 nested tag 风格 (`高等数学/一元微分` 当一个标签),需要改 [`buildTagsBlock`](cxy-to-obsidian.user.js#L72-L84)。
+- `category_full_path` 按 `/` 拆成多个独立 tag,如果你想要 nested tag 风格 (`高等数学/一元微分` 当一个标签),需要改 [`buildTagsBlock`](cxy-to-obsidian.user.js#L94-L107)。
 - 只在 `https://cxyonly.fans/*` 生效 (`@match`),换域名要改脚本头部。
 
 ## 修改 / 调试
 
 脚本是单文件零依赖。改完直接在 Tampermonkey 编辑器 Ctrl/Cmd + S 重载,刷新题目页生效。失败信息会以右上角红色 toast 显示,详细堆栈在浏览器 Console (`[CXY→Obsidian]` 前缀)。
 
-如果模板字段加新东西,记得同时在 [`renderTemplate`](cxy-to-obsidian.user.js#L110-L138) 的 `map` 里加映射,占位符列表也别忘了在配置面板说明里更新一下。
+如果模板字段加新东西,记得同时在 [`renderTemplate`](cxy-to-obsidian.user.js#L133-L162) 的 `map` 里加映射,占位符列表也别忘了在配置面板说明里更新一下。

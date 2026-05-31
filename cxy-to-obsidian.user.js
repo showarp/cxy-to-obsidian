@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         cxyonly 题目导出到 Obsidian
 // @namespace    cxy.export.obsidian
-// @version      0.1.0
+// @version      0.3.0
 // @description  在 cxyonly.fans 题目卡片旁加按钮，一键以 markdown 笔记形式发送到 Obsidian (obsidian:// URI)
 // @match        https://cxyonly.fans/*
 // @grant        GM_setValue
@@ -101,16 +101,16 @@ tags:
     if (q.category_full_path) {
       q.category_full_path.split('/').forEach(add);
     }
-    if (q.题源) add(q.题源);
+    if (q.source) add(q.source);
     if (tags.length === 0) return '  []';
     return tags.map(t => `  - ${t}`).join('\n');
   }
 
   function buildOptionsBlock(q) {
-    const lines = ['A','B','C','D']
+    const lines = ['a','b','c','d']
       .map(L => {
-        const v = q[`选项${L}`];
-        return (v == null || v === '') ? null : `- **${L}.** ${normalizeMath(v)}`;
+        const v = q[`option_${L}`];
+        return (v == null || v === '') ? null : `- **${L.toUpperCase()}.** ${normalizeMath(v)}`;
       })
       .filter(Boolean);
     return lines.length ? lines.join('\n') : '';
@@ -132,16 +132,16 @@ tags:
 
   function renderTemplate(tpl, q) {
     const now = new Date();
-    const 题目内容 = normalizeMath(q.题目内容 ?? '');
-    const 答案 = normalizeMath(q.答案 ?? '');
-    const 解析 = normalizeMath(q.解析 ?? '');
+    const 题目内容 = normalizeMath(q.stem ?? '');
+    const 答案 = normalizeMath(q.correct_answer ?? '');
+    const 解析 = normalizeMath(q.answer_explanation ?? '');
     const map = {
       id: q.id,
-      题号: q.题号 ?? q.id,
+      题号: q.serial_number ?? q.id,
       题目内容,
       category_name: lastSeg(q.category_name),
       category_full_path: q.category_full_path ?? '',
-      题源: q.题源 ?? '',
+      题源: q.source ?? '',
       url: location.href,
       timestamp: fmtTimestamp(now),
       date: fmtDate(now),
@@ -165,8 +165,8 @@ tags:
     const now = new Date();
     const map = {
       id: q.id,
-      题号: q.题号 ?? q.id,
-      题源: q.题源 ?? '',
+      题号: q.serial_number ?? q.id,
+      题源: q.source ?? '',
       category_name: lastSeg(q.category_name),
       category_full_path: q.category_full_path ?? '',
       date: fmtDate(now),

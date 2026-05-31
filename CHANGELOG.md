@@ -1,5 +1,11 @@
 # 更新日志
 
+## v0.3.0
+
+### 修复
+
+- **适配站点 API 字段名变更** — cxyonly.fans 将题目接口返回的字段名从中文改为英文（`题目内容` → `stem`、`答案` → `correct_answer`、`解析` → `answer_explanation`、`题号` → `serial_number`、`题源` → `source`、`选项A/B/C/D` → `option_a/b/c/d`）。修复后导出内容恢复正常。用户侧模板占位符（`{题目内容}` 等）无需修改。
+
 ## v0.2.0
 
 ### 新增功能
